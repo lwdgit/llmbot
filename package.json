@@ -1,6 +1,6 @@
 {
   "name": "llmbot",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "LLM Chatbot",
   "bin": {
     "chatbot": "dist/cli.js",
@@ -28,7 +28,7 @@
   },
   "scripts": {
     "start": "tsx ./src/cli.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "tsx ./tests/test.ts",
     "build": "tsc ./src/cli.ts --target esnext --module commonjs --esModuleInterop --outDir ./dist",
     "prepublishOnly": "npm run build"
   },

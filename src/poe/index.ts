@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import assert from 'node:assert';
@@ -24,15 +23,7 @@ const queries = {
   addMessageBreakMutation: readFileSync(path.join(gqlDir, '/AddMessageBreakMutation.graphql'), 'utf8'),
   chatPaginationQuery: readFileSync(path.join(gqlDir, '/ChatPaginationQuery.graphql'), 'utf8'),
   addHumanMessageMutation: readFileSync(path.join(gqlDir, '/AddHumanMessageMutation.graphql'), 'utf8'),
-  loginMutation: readFileSync(path.join(gqlDir, '/LoginWithVerificationCodeMutation.graphql'), 'utf8'),
-  signUpWithVerificationCodeMutation: readFileSync(
-    path.join(gqlDir, '/SignupWithVerificationCodeMutation.graphql'),
-    'utf8',
-  ),
-  sendVerificationCodeMutation: readFileSync(
-    path.join(gqlDir, '/SendVerificationCodeForLoginMutation.graphql'),
-    'utf8',
-  ),
+  sendMessageMutation: readFileSync(path.join(gqlDir, '/SendMessageMutation.graphql'), 'utf8'),
 };
 
 export default class ChatBot {
@@ -75,16 +66,24 @@ export default class ChatBot {
   }
 
   public async ask(msg: string, model: IModels = 'chatgpt') {
-    const ws = await connectWs(this.credentials);
-    try {
-      let formatModel = ModelMap[model] || ModelMap.chatgpt;
-      await this.getChatId(formatModel);
-      this.sendMsg(msg);
-      let res = await listenWs(ws);
-      return res;
-    } finally {
-      await disconnectWs(ws);
+    let formatModel = ModelMap[model] || ModelMap.chatgpt;
+    await this.getChatId(formatModel);
+    const msgData = await this.sendMsg(msg);
+    if (!msgData?.data?.messageEdgeCreate?.message) {
+      return `${model} Rate limit exceeded.`;
     }
+
+    const human_message = msgData?.data?.messageEdgeCreate?.message;
+    const { messageId, creationTime } = human_message?.node || {};
+
+    if (!messageId) {
+      return `An unknown error occured. Raw response data: ${JSON.stringify(msgData)}`;
+    }
+    const ws = await connectWs(this.credentials);
+
+    let res = await listenWs(ws, creationTime);
+    disconnectWs(ws);
+    return res;
   }
 
   public async send(messages: Array<{ role: string; content: string }>, model: IModels = 'chatgpt') {
@@ -137,18 +136,18 @@ export default class ChatBot {
   }
   private async sendMsg(query: string) {
     try {
-      await this.makeRequest({
-        query: `${queries.addHumanMessageMutation}`,
+      return await this.makeRequest({
+        query: `${queries.sendMessageMutation}`,
         variables: {
           bot: this.bot,
-          chatId: this.chatId,
           query: query,
+          chatId: this.chatId,
           source: null,
           withChatBreak: false,
         },
       });
     } catch (e) {
-      throw new Error('Could not send message');
+      throw new Error(`Could not send message: ${e}`);
     }
   }
 
@@ -162,8 +161,8 @@ export default class ChatBot {
   
     let formkey_list = Array(cipher_pairs.length).fill("");
     for (let pair of cipher_pairs) {
-      let formkey_index = parseInt(pair[1]);
-      let key_index = parseInt(pair[2]);
+      let formkey_index = pair[1];
+      let key_index = pair[2];
       formkey_list[formkey_index] = key_text[key_index];
     }
     let formkey = formkey_list.join("");

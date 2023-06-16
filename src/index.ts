@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import { lock } from './utils';
 import { chat } from './bing/bing-chat';
 import PoeChat, { Models } from './poe'
+import Debug from 'debug';
+const debug = Debug('llmbot:index');
 
 dotenv.config();
 
@@ -26,6 +28,7 @@ async function poe(prompt: string, model: typeof Models[number] = 'chatgpt') {
 export default async (prompt: string, model: typeof models[number] = CurrentModel) => {
   if (!prompt || !prompt.trim()) return '我在';
   await lock.acquire();
+  debug('doing');
   try {
     if (/^\/(list|cookie\s+|use\s+)(.*)/.test(prompt.trim())) {
       const command = RegExp.$1.trim();
@@ -50,10 +53,12 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
       }
     }
 
-    return model === 'bing' ? chat(prompt) : poe(prompt, model);
+    debug('prompt', prompt);
+    return model === 'bing' ? await chat(prompt) : await poe(prompt, model);
   } catch (e) {
     console.error(e);
   } finally {
+    debug('done');
     lock.release();
   }
 }

@@ -8,7 +8,7 @@ export async function cli() {
   const rl = readline.createInterface({ input, output });
   while (true) {
     const prompt = await rl.question('用户: ');
-    if (prompt === '') break;
+    if (!prompt.trim()) break;
     const response = await chat(prompt);
     console.log('AI: ' + response);
   }

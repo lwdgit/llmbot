@@ -1,15 +1,18 @@
 import assert from 'assert';
 import dotenv from 'dotenv';
 import { lock } from './utils';
-import { chat } from './bing/bing-chat';
+import { chat as bing } from './bing/bing-chat';
+import { chat as gradio } from './gradio';
 import PoeChat, { Models } from './poe'
 import Debug from 'debug';
 const debug = Debug('llmbot:index');
 
 dotenv.config();
 
-export const models = [...Models, 'bing'] as const;
+export const models = ['bing', ...Models, 'gradio'] as const;
+
 let CurrentModel: typeof models[number] = 'bing';
+let CurrentSpace: string = '';
 
 let poeBot;
 function poeCookie(cookie: string) {
@@ -30,10 +33,20 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
   await lock.acquire();
   debug('doing');
   try {
-    if (/^\/(list|cookie\s+|use\s+)(.*)/.test(prompt.trim())) {
-      const command = RegExp.$1.trim();
+    const re = new RegExp(`^\/(list|current|cookie\\s+|use\\s+|(?:${models.join('|')}))(.*)`);
+    if (re.test(prompt.trim())) {
+      let command = RegExp.$1.trim();
+      let args = RegExp.$2.trim();
+      if (models.includes(command as any)) {
+        // short alias
+        args = `${command} ${args}`;
+        command = 'use';
+      }
+
       if (command === 'list') {
-        return '当前可以使用的 AI 指指令：\n\n' + models.map(model => `/use ${model}`).join('\n');
+        return '当前可以使用的 AI 指令：\n\n' + models.map(model => `/use ${model}`).join('\n');
+      } else if (command === 'current') {
+        return `当前正在使用 ${CurrentModel} ${CurrentModel === 'gradio' ? CurrentSpace : ''}`;
       } else if (command === 'cookie') {
         const cookie = RegExp.$2.trim();
         if (cookie) {
@@ -43,18 +56,32 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
           return '指令有误';
         }
       } else if (command === 'use') {
-        const modelName = RegExp.$2.trim();
+        const [modelName, extra] = args.split(/\s+/);
         if (models.includes(modelName as any)) {
-          CurrentModel = modelName as any;
-          return `AI 已切换到 ${modelName}`;
-        } else {
-          return `不存在名为 ${modelName} 的 AI ，当前使用的 AI 为${CurrentModel}`;
+          if (modelName === 'gradio') {
+            CurrentSpace = extra || CurrentSpace;
+            if (CurrentSpace) {
+              CurrentModel = 'gradio';
+              return `AI 已切换到 Gradio，模型地址为: ${CurrentSpace}`;
+            } else {
+              return `Gradio 需要指定模型地址`;
+            }
+          } else {
+            CurrentModel = modelName as any;
+            return `AI 已切换到 ${modelName}`;
+          }
         }
+        return `不存在名为 ${modelName} 的 AI ，当前使用的 AI 为${CurrentModel}`;
       }
     }
 
     debug('prompt', prompt);
-    return model === 'bing' ? await chat(prompt) : await poe(prompt, model);
+    if (model === 'bing') {
+      return await bing(prompt);
+    } else if (model === 'gradio') {
+      return await gradio(prompt, { url: CurrentSpace });
+    }
+    return await poe(prompt, model);
   } catch (e) {
     console.error(e);
   } finally {

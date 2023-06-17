@@ -316,7 +316,6 @@ export class BingChat {
   async createConversation(_cookie): Promise<types.ConversationResult> {
     const url = 'https://edgeservices.bing.com/edgesvc/turing/conversation/create';
     // const url = 'https://www.bing.com/turing/conversation/create';
-    // const url = 'https://ai.github1s.tk/turing/conversation/create';
 
     const cookie = _cookie?.includes(';')
       ? _cookie

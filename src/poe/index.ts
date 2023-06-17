@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import assert from 'node:assert';
-import fetch from './fetch';
+import fetch from '../utils/fetch';
 import { scrape, getUpdatedSettings } from './credentials';
 import { listenWs, connectWs, disconnectWs } from './websocket';
 

@@ -1,4 +1,4 @@
-import fetch from './fetch';
+import fetch from '../utils/fetch';
 
 const scrape = async (pbCookie) => {
   const _setting = await fetch('https://poe.com/api/settings', { headers: { cookie: `${pbCookie}` } });

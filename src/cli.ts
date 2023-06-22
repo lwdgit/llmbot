@@ -9,7 +9,7 @@ export async function cli() {
   while (true) {
     const prompt = await rl.question('用户: ');
     if (!prompt.trim()) break;
-    const response = await chat(prompt);
+    const response = await chat(prompt, process.argv[2] as any || undefined);
     console.log('AI: ' + response);
   }
   rl.close();

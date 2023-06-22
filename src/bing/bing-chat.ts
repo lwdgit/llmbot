@@ -314,8 +314,8 @@ export class BingChat {
   }
 
   async createConversation(_cookie): Promise<types.ConversationResult> {
-    const url = 'https://edgeservices.bing.com/edgesvc/turing/conversation/create';
-    // const url = 'https://www.bing.com/turing/conversation/create';
+    // const url = 'https://edgeservices.bing.com/edgesvc/turing/conversation/create';
+    const url = 'https://www.bing.com/turing/conversation/create';
 
     const cookie = _cookie?.includes(';')
       ? _cookie
@@ -350,12 +350,12 @@ let _options : null | types.SendMessageOptions = null;
 const ConversationState = {
   set value(opts: types.SendMessageOptions & Partial<Pick<types.ChatMessage, 'end' | 'text'>>) {
     if (!opts.text) {
-      opts.text = '小黄鸭无响应';
+      opts.text = 'No response';
       opts.end = true;
     }
     if (opts.end) {
       _options = null;
-      opts.text += '\n\n系统提示：小黄鸭已经中止了这个话题'
+      opts.text += '\n\nSystem Info：Bing canceled the conversation'
     } else {
       _options = {
         conversationExpiryTime: opts.conversationExpiryTime,

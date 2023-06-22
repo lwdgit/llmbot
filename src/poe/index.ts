@@ -12,8 +12,11 @@ const ModelMap = {
   chatgpt: 'chinchilla',
   sage: 'capybara',
   claude: 'a2',
+  'claude+': 'a2_2',
+  gpt4: 'beaver',
   qianlong: 'qianlonggpt',
-}
+  midjourney: 'midjourney',
+};
 
 export const Models = Object.keys(ModelMap) as Array<keyof typeof ModelMap>;
 type IModels = typeof Models[number];

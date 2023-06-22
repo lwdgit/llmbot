@@ -4,20 +4,26 @@ import { lock } from './utils';
 import { chat as bing } from './bing/bing-chat';
 import { chat as gradio } from './gradio';
 import PoeChat, { Models } from './poe'
+import { SlackBot } from './slack';
 import Debug from 'debug';
 const debug = Debug('llmbot:index');
 
 dotenv.config();
 
-export const models = ['bing', ...Models, 'gradio'] as const;
+export const models = ['bing', 'slack', ...Models, 'gradio'] as const;
 
 let CurrentModel: typeof models[number] = 'bing';
 let CurrentSpace: string = '';
 
-let poeBot;
+let poeBot: PoeChat;
+let slackBot: SlackBot;
 function poeCookie(cookie: string) {
   poeBot = new PoeChat(cookie);
   return poeBot.start();
+}
+
+if (process.env.SLACK_LISTEN_BOT_TOKEN && process.env.SLACK_CHANNEL) {
+  slackBot = new SlackBot(process.env.SLACK_LISTEN_BOT_TOKEN, process.env.SLACK_CHANNEL, process.env.SLACK_CHATBOT_NAME)
 }
 
 async function poe(prompt: string, model: typeof Models[number] = 'chatgpt') {
@@ -33,7 +39,7 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
   await lock.acquire();
   debug('doing');
   try {
-    const re = new RegExp(`^\/(list|current|cookie\\s+|use\\s+|(?:${models.join('|')}))(.*)`);
+    const re = new RegExp(`^\/(list|current|cookie\\s+|use\\s+|(?:${models.join('|').replace(/\+/, '\\+')}))(.*)`);
     if (re.test(prompt.trim())) {
       let command = RegExp.$1.trim();
       let args = RegExp.$2.trim();
@@ -78,7 +84,12 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
     debug('prompt', prompt);
     if (model === 'bing') {
       return await bing(prompt);
-    } else if (model === 'gradio') {
+    } else if (model === 'slack') {
+      if (!slackBot) {
+        return '未配置 Slack';
+      }
+      return (await slackBot.chat(prompt)).message;
+    } if (model === 'gradio') {
       return await gradio(prompt, { url: CurrentSpace });
     }
     return await poe(prompt, model);

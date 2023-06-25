@@ -1,5 +1,6 @@
 import assert from 'assert';
 import dotenv from 'dotenv';
+import type { LLMMessage, LLMOpts } from './typings';
 import { lock } from './utils';
 import { chat as bing } from './bing/bing-chat';
 import { chat as gradio } from './gradio';
@@ -22,16 +23,17 @@ function poeCookie(cookie: string) {
   return poeBot.start();
 }
 
-async function poe(prompt: string, model: typeof Models[number] = 'chatgpt'): Promise<string> {
+async function poe(prompt: string, model: typeof Models[number] = 'chatgpt', onMessage?: LLMMessage): Promise<string> {
   assert(process.env.POE_COOKIE, 'No poe cooike')
   if (!poeBot) {
     await poeCookie(process.env.POE_COOKIE);
   }
-  return poeBot.ask(prompt, model);
+  return poeBot.ask(prompt, model, onMessage);
 }
 
-export default async (prompt: string, model: typeof models[number] = CurrentModel): Promise<string> => {
+export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Promise<string> => {
   if (!prompt || !prompt.trim()) return '我在';
+  const model = opts.model || CurrentModel;
   debug('prompt', prompt);
   debug('model', model);
   if (!models.includes(model)) {
@@ -83,7 +85,7 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
     }
 
     if (model === 'bing') {
-      return await bing(prompt);
+      return await bing(prompt, opts.onMessage);
     } else if (model === 'slack') {
       if (!slackBot) {
         if (process.env.SLACK_LISTEN_BOT_TOKEN && process.env.SLACK_CHANNEL) {
@@ -92,11 +94,13 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
           return '未配置 Slack';
         }
       }
-      return (await slackBot.chat(prompt)).message;
+      return (await slackBot.chat(prompt, {
+        onMessage: opts.onMessage,
+      })).message;
     } if (model === 'gradio') {
-      return await gradio(prompt, { url: CurrentSpace });
+      return await gradio(prompt, { url: CurrentSpace, onMessage: opts.onMessage });
     }
-    return await poe(prompt, model);
+    return await poe(prompt, model, opts.onMessage);
   } catch (e) {
     console.error(e);
     return `${e}`;

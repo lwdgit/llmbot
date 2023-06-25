@@ -18,7 +18,7 @@ export type SendMessageOptions = {
   }
   locationHints?: LocationHintChatRequestMessage
 
-  onProgress?: (partialResponse: ChatMessage) => void
+  onMessage?: (partialResponse: ChatMessage) => void
 }
 
 export interface ChatMessage {

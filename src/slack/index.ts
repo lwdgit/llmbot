@@ -2,9 +2,15 @@ import { WebClient } from '@slack/web-api';
 import assert from 'assert';
 import Debug from 'debug';
 const debug = Debug('llmbot:slack');
+import type { LLMMessage } from '../typings';
 import { sleep } from '../utils';
 
 type MsgCallback = (msg: string, done: boolean) => void;
+interface SlackOpts {
+  ts: string;
+  timeout: number;
+  onMessage: LLMMessage,
+}
 
 export class SlackBot {
   webClient!: WebClient;
@@ -39,7 +45,7 @@ export class SlackBot {
     });
   }
 
-  async receive(ts: string, timeout = this.timeout) {
+  async receive(ts: string, timeout = this.timeout, onMessage?: LLMMessage) {
     const messages: string[] = [];
     let finished = false;
     const receiveMessageCallback: MsgCallback = (msg, done) => {
@@ -65,6 +71,7 @@ export class SlackBot {
       let [content, end] = /([\s\S]*)_Typing…_$/.test(text) ? [RegExp.$1, false] : [text, true];
       chatting = !end;
       content = content.trim();
+      onMessage?.(content);
       receiveMessageCallback(content.slice(len), false);
       len = content.length;
       if (end) {
@@ -80,7 +87,12 @@ export class SlackBot {
     };
   }
 
-  chat = async (text, ts = this.ts, timeout = this.timeout) => {
+  chat = async (text, opts: Partial<SlackOpts> = {
+    ts: this.ts,
+    timeout: this.timeout,
+  }) => {
+    const ts = opts.ts ?? this.ts;
+    const timeout = opts.timeout ?? this.timeout;
     text = `${await this.chatbotId}${text}`;
     const request = await this.webClient.chat.postMessage({
       thread_ts: ts,
@@ -98,6 +110,6 @@ export class SlackBot {
     });
 
     this._ts = this._ts || request.ts!;
-    return this.receive(this.ts, timeout);
+    return this.receive(this.ts, timeout, opts.onMessage);
   }
 }

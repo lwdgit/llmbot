@@ -6,6 +6,7 @@ import { client } from './client';
 import type { Event, Status } from './client/types'
 import axios from 'axios';
 import { spaces } from './config';
+import { LLMMessage } from '../typings';
 
 const debug = Debug('llmbot:gradio');
 
@@ -23,7 +24,7 @@ export type GradioChatOptions = MergeExclusive<{
   fn_index?: number;
   args?: unknown[];
   session_hash?: string;
-  onMessage?: (message: string) => void;
+  onMessage?: LLMMessage;
   onError?: (error: string) => void;
   abort?: AbortSignal;
 }

@@ -68,7 +68,9 @@ app.use('/api/audio', async (req, res, next) => {
   }]);
   const prompt = app.data?.[0].slice(2);
   console.log('输入', prompt);
-  const content = await chat(prompt, 'midjourney');
+  const content = await chat(prompt, {
+    model: 'midjourney',
+  });
   console.log('输出', content);
   res.json(responseOpenAIMessage(content, prompt));
 });

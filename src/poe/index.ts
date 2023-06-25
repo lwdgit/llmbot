@@ -5,6 +5,7 @@ import assert from 'node:assert';
 import fetch from '../utils/fetch';
 import { scrape, getUpdatedSettings } from './credentials';
 import { listenWs, connectWs, disconnectWs } from './websocket';
+import { LLMMessage } from '../typings';
 
 const gqlDir = path.join(__dirname, '../../graphql');
 
@@ -68,7 +69,7 @@ export default class ChatBot {
     this.credentials.app_settings.tchannelData.minSeq = minSeq;
   }
 
-  public async ask(msg: string, model: IModels = 'chatgpt'): Promise<string> {
+  public async ask(msg: string, model: IModels = 'chatgpt', onMessage?: LLMMessage): Promise<string> {
     let formatModel = ModelMap[model] || ModelMap.chatgpt;
     await this.getChatId(formatModel);
     const msgData = await this.sendMsg(msg);
@@ -83,8 +84,7 @@ export default class ChatBot {
       return `An unknown error occured. Raw response data: ${JSON.stringify(msgData)}`;
     }
     const ws = await connectWs(this.credentials);
-
-    let res = await listenWs(ws, creationTime);
+    let res = await listenWs(ws, creationTime, onMessage);
     disconnectWs(ws);
     return res;
   }

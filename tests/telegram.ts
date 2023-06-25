@@ -11,7 +11,19 @@ const bot = new TelegramBot(token, { polling: true });
 bot.onText(/(.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const msgText = match[1];
-    const repponse = await chat(msgText);
 
-    bot.sendMessage(chatId, repponse?.trim() || '无响应');
+    const result = await bot.sendMessage(chatId, '请稍候...');
+    let lastLength = 0;
+    async function sendMessage(msg) {
+        if (lastLength === msg.length || !msg.length) return;
+        lastLength = msg.length;
+        bot.editMessageText(msg, {
+            chat_id: chatId,
+            message_id: result.message_id,
+        });
+    }
+    const response = await chat(msgText, {
+        onMessage: sendMessage,
+    });
+    sendMessage(response);
 });

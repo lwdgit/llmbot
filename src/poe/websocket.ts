@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import Debug from 'debug';
+import type { LLMMessage } from '../typings';
 const debug = Debug('llmbot:poe');
 
 const getSocketUrl = async (credentials) => {
@@ -27,10 +28,10 @@ export const disconnectWs = async (ws: WebSocket) => {
   ws.close();
 };
 
-export const listenWs = async (ws: WebSocket, since: number): Promise<string> => {
+export const listenWs = async (ws: WebSocket, since: number, onMessage?: LLMMessage): Promise<string> => {
   return new Promise((resolve) => {
     let previousText = '';
-    const onMessage = function incoming(data) {
+    const handleMessage = function incoming(data) {
       const dataString = data.toString();
       let jsonData = JSON.parse(dataString);
       if (Array.isArray(jsonData.messages)) {
@@ -43,15 +44,17 @@ export const listenWs = async (ws: WebSocket, since: number): Promise<string> =>
             continue;
           }
           if (state === 'complete') {
+            onMessage?.(text || previousText);
             return resolve(text || previousText);
           } else if (state === 'incomplete') {
+            onMessage?.(text);
             previousText = text;
           }
         }
       }
     };
     ws.on('error', debug);
-    ws.on('message', onMessage);
+    ws.on('message', handleMessage);
     ws.on('close', function close() {
       debug('ws closed');
       return resolve('没有响应');

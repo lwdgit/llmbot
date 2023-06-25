@@ -5,6 +5,7 @@ import assert from 'assert';
 import { client } from './client';
 import type { Event, Status } from './client/types'
 import axios from 'axios';
+export * from './config';
 import { spaces } from './config';
 import { LLMMessage } from '../typings';
 

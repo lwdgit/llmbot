@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import type { LLMMessage, LLMOpts } from './typings';
 import { lock } from './utils';
 import { chat as bing } from './bing/bing-chat';
-import { chat as gradio } from './gradio';
+import { chat as gradio, spaces } from './gradio';
 import PoeChat, { Models } from './poe';
 import { SlackBot } from './slack';
 import Debug from 'debug';
@@ -71,6 +71,9 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
             CurrentSpace = extra || CurrentSpace;
             if (CurrentSpace) {
               CurrentModel = 'gradio';
+              if (!isNaN(CurrentSpace as any)) {
+                CurrentSpace = spaces[CurrentSpace];
+              }
               return `AI 已切换到 Gradio，模型地址为: ${CurrentSpace}`;
             } else {
               return `Gradio 需要指定模型地址`;
@@ -80,7 +83,7 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
             return `AI 已切换到 ${modelName}`;
           }
         }
-        return `不存在名为 ${modelName} 的 AI ，当前使用的 AI 为${CurrentModel}`;
+        return `不存在名为 ${modelName} 的 AI，当前使用的 AI 为${CurrentModel}`;
       }
     }
 

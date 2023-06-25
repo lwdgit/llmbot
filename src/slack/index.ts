@@ -36,7 +36,7 @@ export class SlackBot {
       }
       debug(botList?.length, '此 Channel 没有找到机器人/Slack Apps');
       resolve('');
-    })
+    });
   }
 
   async receive(ts: string, timeout = this.timeout) {

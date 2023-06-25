@@ -8,9 +8,15 @@ export default async function fetch(url: string, options?: AxiosRequestConfig<an
     options.data = JSON.parse(options.body);
     delete options?.body;
   }
-  const response = await axios(url, options).catch(e => console.log(e.message));
+  const response = await axios(url, {
+    ...options,
+    validateStatus: () => true,
+  });
   // @ts-ignore
   debug('fetch', options?.method || 'GET', url, response?.status);
+  if (!response?.status) {
+    console.log(response);
+  }
   return {
     ...response,
     // @ts-ignore

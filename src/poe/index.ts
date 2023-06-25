@@ -68,7 +68,7 @@ export default class ChatBot {
     this.credentials.app_settings.tchannelData.minSeq = minSeq;
   }
 
-  public async ask(msg: string, model: IModels = 'chatgpt') {
+  public async ask(msg: string, model: IModels = 'chatgpt'): Promise<string> {
     let formatModel = ModelMap[model] || ModelMap.chatgpt;
     await this.getChatId(formatModel);
     const msgData = await this.sendMsg(msg);

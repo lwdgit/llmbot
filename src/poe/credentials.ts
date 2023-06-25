@@ -21,7 +21,7 @@ const getUpdatedSettings = async (channelName, pbCookie) => {
   if (_setting.status !== 200) throw new Error('Failed to fetch token');
   const appSettings = await _setting.json(),
     {
-      tchannelData: { minSeq: minSeq },
+      tchannelData: { minSeq },
     } = appSettings;
 
   return {

@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { lock } from './utils';
 import { chat as bing } from './bing/bing-chat';
 import { chat as gradio } from './gradio';
-import PoeChat, { Models } from './poe'
+import PoeChat, { Models } from './poe';
 import { SlackBot } from './slack';
 import Debug from 'debug';
 const debug = Debug('llmbot:index');
@@ -22,11 +22,7 @@ function poeCookie(cookie: string) {
   return poeBot.start();
 }
 
-if (process.env.SLACK_LISTEN_BOT_TOKEN && process.env.SLACK_CHANNEL) {
-  slackBot = new SlackBot(process.env.SLACK_LISTEN_BOT_TOKEN, process.env.SLACK_CHANNEL, process.env.SLACK_CHATBOT_NAME)
-}
-
-async function poe(prompt: string, model: typeof Models[number] = 'chatgpt') {
+async function poe(prompt: string, model: typeof Models[number] = 'chatgpt'): Promise<string> {
   assert(process.env.POE_COOKIE, 'No poe cooike')
   if (!poeBot) {
     await poeCookie(process.env.POE_COOKIE);
@@ -34,10 +30,15 @@ async function poe(prompt: string, model: typeof Models[number] = 'chatgpt') {
   return poeBot.ask(prompt, model);
 }
 
-export default async (prompt: string, model: typeof models[number] = CurrentModel) => {
+export default async (prompt: string, model: typeof models[number] = CurrentModel): Promise<string> => {
   if (!prompt || !prompt.trim()) return '我在';
+  debug('prompt', prompt);
+  debug('model', model);
+  if (!models.includes(model)) {
+    return `不存在 model: ${model}`;
+  }
   await lock.acquire();
-  debug('doing');
+  debug('进入队列');
   try {
     const re = new RegExp(`^\/(list|current|cookie\\s+|use\\s+|(?:${models.join('|').replace(/\+/, '\\+')}))(.*)`);
     if (re.test(prompt.trim())) {
@@ -81,12 +82,15 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
       }
     }
 
-    debug('prompt', prompt);
     if (model === 'bing') {
       return await bing(prompt);
     } else if (model === 'slack') {
       if (!slackBot) {
-        return '未配置 Slack';
+        if (process.env.SLACK_LISTEN_BOT_TOKEN && process.env.SLACK_CHANNEL) {
+          slackBot = new SlackBot(process.env.SLACK_LISTEN_BOT_TOKEN, process.env.SLACK_CHANNEL, process.env.SLACK_CHATBOT_NAME);
+        } else {
+          return '未配置 Slack';
+        }
       }
       return (await slackBot.chat(prompt)).message;
     } if (model === 'gradio') {
@@ -95,6 +99,7 @@ export default async (prompt: string, model: typeof models[number] = CurrentMode
     return await poe(prompt, model);
   } catch (e) {
     console.error(e);
+    return `${e}`;
   } finally {
     debug('done');
     lock.release();

@@ -85,9 +85,9 @@ export class BingChat {
     const result: types.ChatMessage = {
       author: 'bot',
       id: crypto.randomUUID(),
-      conversationId,
-      clientId,
-      conversationSignature,
+      conversationId: conversationId!,
+      clientId: clientId!,
+      conversationSignature: conversationSignature!,
       invocationId: `${parseInt(invocationId, 10) + 1}`,
       text: ''
     }
@@ -281,20 +281,20 @@ export class BingChat {
                 onProgress?.(result)
               }
             } else if (message.type === 2) {
-              const response = message as types.ChatUpdateCompleteResponse
+              const response = message as types.ChatUpdateCompleteResponse;
               const validMessages = response.item.messages?.filter(
                 (m) => !m.messageType && m.author === 'bot'
-              )
-              const lastMessage = validMessages?.[validMessages?.length - 1]
+              );
+              const lastMessage = validMessages?.at(-1);
 
               if (lastMessage) {
                 result.conversationExpiryTime =
                   response.item.conversationExpiryTime
 
                 result.author = lastMessage.author
-                result.text = lastMessage.text || lastMessage.adaptiveCards.map(card => card.body.map(body => body.text).join('\n')).join('\n')
+                result.text = lastMessage.text || (lastMessage.adaptiveCards??[]).map(card => card.body.map(body => body.text).join('\n')).join('\n')
                 result.detail = lastMessage
-                result.end = response.item.messages.at(-1).messageType === 'Disengaged' || response.item.throttling.numUserMessagesInConversation >= response.item.throttling.maxNumUserMessagesInConversation;
+                result.end = response.item?.messages.at(-1)?.messageType === 'Disengaged' || response.item.throttling.numUserMessagesInConversation >= response.item.throttling.maxNumUserMessagesInConversation;
               }
             } else if (message.type === 7) {
               ws.send(`{"type":7}${terminalChar}`)
@@ -366,7 +366,7 @@ const ConversationState = {
       };
     }
   },
-  get value() {
+  get value(): types.SendMessageOptions & Partial<Pick<types.ChatMessage, 'end' | 'text'>> | undefined {
     return _options && new Date(_options?.conversationExpiryTime as any).getTime() > Date.now() + 3600000 ? _options : undefined;
   },
 }

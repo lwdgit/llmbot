@@ -6,11 +6,8 @@ const debug = Debug('llmbot:poe');
 const getSocketUrl = async (credentials) => {
   const socketUrl = `wss://tch${Math.ceil(Math.random() * (1e6 - 1))}.tch.quora.com`;
   const appSettings = credentials.app_settings.tchannelData;
-  const boxName = appSettings.boxName;
-  const minSeq = appSettings.minSeq;
-  const channel = appSettings.channel;
-  const hash = appSettings.channelHash;
-  return `${socketUrl}/up/${boxName}/updates?min_seq=${minSeq}&channel=${channel}&hash=${hash}`;
+  const { boxName, minSeq, channel, channelHash } = appSettings || {};
+  return `${socketUrl}/up/${boxName}/updates?min_seq=${minSeq}&channel=${channel}&hash=${channelHash}`;
 };
 
 export const connectWs = async (credentials): Promise<WebSocket> => {
@@ -30,7 +27,7 @@ export const disconnectWs = async (ws: WebSocket) => {
   ws.close();
 };
 
-export const listenWs = async (ws: WebSocket, since: number) => {
+export const listenWs = async (ws: WebSocket, since: number): Promise<string> => {
   return new Promise((resolve) => {
     let previousText = '';
     const onMessage = function incoming(data) {

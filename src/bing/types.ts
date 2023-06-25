@@ -111,7 +111,7 @@ export interface ChatResponseItem {
   conversationExpiryTime: string
   telemetry: Telemetry
   result: ChatRequestResult
-  throttling?: Throttling
+  throttling: Throttling
 }
 
 export interface ChatMessageFull {

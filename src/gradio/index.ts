@@ -84,14 +84,16 @@ const parseInputs = (fn_index: number, config: any, skip_text = false) => {
   return [inputs, textInputIndex, outputIndex];
 }
 
-export const findValidSubmitByType = (dependencies: any[], type: string) => {
-  return dependencies.findIndex(
+export const findValidSubmitByType = (components: any[], dependencies: any[], type: string) => {
+  const id = components.find(com => com.type === 'button' && com.props.value === 'Submit')?.id;
+  let index = dependencies.findIndex(dep => dep.targets?.includes?.(id));
+  return index === -1 ? dependencies.findIndex(
     (dep = {}) => 
       dep.inputs?.length
       && dep.outputs?.length
       && dep.backend_fn
       && dep.trigger === type
-  );
+  ) : index;
 }
 
 export const findValidSubmitByButton = (components: any[], dependencies: any[]) => {
@@ -100,7 +102,7 @@ export const findValidSubmitByButton = (components: any[], dependencies: any[]) 
   return dependencies.findIndex(dep => dep.targets?.includes?.(id));
 }
 
-export const chat = async (prompt: string, options: GradioChatOptions) => {
+export const chat = async (prompt: string, options: GradioChatOptions): Promise<string> => {
   assert(prompt, 'prompt 不能为空');
   assert(options?.endpoint || options.url, 'endpoint 和 url 必须要指定其中一个');
   return new Promise(async (resolve, reject) => {
@@ -115,28 +117,28 @@ export const chat = async (prompt: string, options: GradioChatOptions) => {
 
       const { components, dependencies } = config;
 
-      let submitDepsIndex = options.fn_index ?? findValidSubmitByType(dependencies, 'submit');
-      if (submitDepsIndex < 0) {
-        submitDepsIndex = Math.max(findValidSubmitByButton(components, dependencies), findValidSubmitByType(dependencies, 'click'));
+      let fn_index = options.fn_index ?? findValidSubmitByType(components, dependencies, 'submit');
+      if (fn_index < 0) {
+        fn_index = Math.max(findValidSubmitByButton(components, dependencies), findValidSubmitByType(components, dependencies, 'click'));
       }
-      assert(submitDepsIndex > -1, '解析此空间失败');
+      assert(fn_index > -1, '解析此空间失败');
 
       let inputs = options?.args;
       let outputIndex = -1;
       
       if (!inputs?.length) {
-        let [inps, inpIndex, outIndex ] = parseInputs(submitDepsIndex, config);
+        let [inps, inpIndex, outIndex ] = parseInputs(fn_index, config);
         inps[inpIndex] = prompt;
         inputs = inps;
         outputIndex = outIndex;
       }
 
-      debug('inputs', JSON.stringify(inputs));
-      let app = submit(submitDepsIndex, inputs);
-      while (dependencies[++submitDepsIndex]?.trigger === 'then') {
-        let [inps, _, outIndex ] = parseInputs(submitDepsIndex, config, true);
+      debug('inputs', fn_index, JSON.stringify(inputs));
+      let app = submit(fn_index, inputs);
+      while (dependencies[++fn_index]?.trigger === 'then') {
+        let [inps, _, outIndex ] = parseInputs(fn_index, config, true);
         outputIndex = outIndex;
-        app = submit(submitDepsIndex, inps);
+        app = submit(fn_index, inps);
       }
 
       let completed = false;
@@ -154,7 +156,6 @@ export const chat = async (prompt: string, options: GradioChatOptions) => {
 
         if (errorMessage) {
           options?.onError?.(errorMessage);
-          reject(errorMessage);
         } else {
           lastMessage = message ? NodeHtmlMarkdown.translate(message).replace(/�/g, '') : '';
           options?.onMessage?.(lastMessage);
@@ -181,7 +182,6 @@ export const chat = async (prompt: string, options: GradioChatOptions) => {
           if (dataReturned) {
             app.destroy();
           }
-          resolve(true);
         }
       };
 
@@ -199,4 +199,3 @@ export const chat = async (prompt: string, options: GradioChatOptions) => {
     }
   });
 };
-

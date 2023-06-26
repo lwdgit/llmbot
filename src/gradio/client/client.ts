@@ -1079,6 +1079,7 @@ function image_to_data_uri(blob: Blob) {
 }
 
 function skip_queue(id: number, config: Config) {
+	return false;
 	return (
 		!(config?.dependencies?.[id]?.queue === null
 			? config.enable_queue

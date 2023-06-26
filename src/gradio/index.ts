@@ -61,14 +61,15 @@ const parseInputs = (fn_index: number, config: any, skip_text = false) => {
   const { components, dependencies } = config;
   const chatbot = components.find((com) => com.type === 'chatbot' && com.props?.visible);
 
-  const submitBtn = dependencies[fn_index];
-  const inputComponents = submitBtn?.inputs?.map((inputId: number) => components.find((com) => com.id === inputId)) || [];
+  const submitFn = dependencies[fn_index];
+  const inputComponents = submitFn?.inputs?.map((inputId: number) => components.find((com) => com.id === inputId)) || [];
   const inputs = inputComponents.map((com: any) => com?.props?.value ?? null);
-  let outputIndex = submitBtn?.outputs.indexOf(chatbot?.id);
+  let outputIndex = submitFn?.outputs.indexOf(chatbot?.id);
 
-  let textInputIndex = skip_text ? 0 : submitBtn?.inputs.indexOf(submitBtn?.targets?.[0]);
+  debug('fn_index', fn_index);
+  let textInputIndex = skip_text ? 0 : submitFn?.inputs.indexOf(submitFn?.targets?.[0]);
   if (textInputIndex < 0) {
-    textInputIndex = submitBtn?.inputs.findIndex(id => 
+    textInputIndex = submitFn?.inputs.findIndex(id => 
       components?.find((com: any) =>
       id === com.id
       && (com.type === 'textbox' || com.example_input)
@@ -77,7 +78,7 @@ const parseInputs = (fn_index: number, config: any, skip_text = false) => {
 
   assert(textInputIndex > -1, '找不到输入框');
 
-  const historyIndex = submitBtn?.inputs.indexOf(chatbot?.id);
+  const historyIndex = submitFn?.inputs.indexOf(chatbot?.id);
   if (historyIndex > -1) {
     inputs[historyIndex] = [];
   }
@@ -110,7 +111,7 @@ export const chat = async (prompt: string, options: GradioChatOptions): Promise<
   return new Promise(async (resolve, reject) => {
     try {
       if (options.url && !isNaN(options.url as any)) {
-        options.url = spaces[parseInt(options.url, 10)];
+        options = Object.assign({}, options, spaces[parseInt(options.url, 10)]);
       }
       const endpoint = options.endpoint || await resolveEndpoint(options.url!);
       debug('endpoint', endpoint);
@@ -138,8 +139,10 @@ export const chat = async (prompt: string, options: GradioChatOptions): Promise<
       debug('inputs', fn_index, JSON.stringify(inputs));
       let app = submit(fn_index, inputs);
       while (dependencies[++fn_index]?.trigger === 'then') {
+        await app;
         let [inps, _, outIndex ] = parseInputs(fn_index, config, true);
         outputIndex = outIndex;
+        debug('fn_index', fn_index, JSON.stringify(inps));
         app = submit(fn_index, inps);
       }
 

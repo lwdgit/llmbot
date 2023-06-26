@@ -25,19 +25,20 @@ const huggingface = [
   'https://huggingface.co/spaces/IDEA-CCNL/Ziya-v1'
 ];
 
-chat('你叫什么名字', {
-    url: modelscope.at(-1),
-}).then(res => console.log({res}));
+// chat('你叫什么名字', {
+//     url: modelscope.at(-1),
+// }).then(res => console.log({res}));
 
 // chat('你叫什么名字', {
-//   url: huggingface.at(-1),
+//   url: huggingface.at(3),
+//   fn_index: 2,
 // }).then(res => console.log({ res })).catch(e => console.log(e));
 
 // vicuna
-// chat('你叫什么名字', {
-//     endpoint: custom[0],
-//     fn_index: 9,
-// }).then(res => console.log({res})).catch(e => console.log(e));
+chat('你叫什么名字', {
+    endpoint: custom[0],
+    fn_index: 9,
+}).then(res => console.log({res})).catch(e => console.log(e));
 
 // custom
 // chat('你叫什么名字', {

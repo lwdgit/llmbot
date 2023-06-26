@@ -93,7 +93,7 @@ export class BingChat {
 
     const responseP = new Promise<types.ChatMessage>(
       async (resolve, reject) => {
-        const chatWebsocketUrl = 'wss://sydney.bing.com/sydney/ChatHub'
+        const chatWebsocketUrl = 'wss://sydney.bing.com/sydney/ChatHub';
         const agent = process.env.HTTP_PROXY ? new HttpsProxyAgent(process.env.HTTP_PROXY) : undefined;
 
         const ws = new WebSocket(chatWebsocketUrl, {
@@ -121,11 +121,11 @@ export class BingChat {
             isFulfilled = true;
             reject(new Error(`WebSocket error: ${error.toString()}`));
           }
-        })
+        });
+
         ws.on('close', () => {
           debug('ws closed');
-          // TODO
-        })
+        });
 
         const traceId = crypto.randomBytes(16).toString('hex');
 
@@ -138,13 +138,6 @@ export class BingChat {
 
         // Sets the correct options for the variant of the model
         const optionsSets = [
-          // 'nlu_direct_response_filter',
-          // 'deepleo',
-          // 'enable_debug_commands',
-          // 'disable_emoji_spoken_text',
-          // 'responsible_ai_policy_235',
-          // 'enablemm'
-          
           "nlu_direct_response_filter",
           "deepleo",
           "disable_emoji_spoken_text",
@@ -283,13 +276,13 @@ export class BingChat {
               const lastMessage = validMessages?.at(-1);
 
               if (lastMessage) {
-                result.conversationExpiryTime =
-                  response.item.conversationExpiryTime;
-
+                result.conversationExpiryTime = response.item.conversationExpiryTime;
                 result.author = lastMessage.author;
                 result.text = lastMessage.text || (lastMessage.adaptiveCards??[]).map(card => card.body.map(body => body.text).join('\n')).join('\n');
                 result.detail = lastMessage;
                 result.end = response.item?.messages.at(-1)?.messageType === 'Disengaged' || response.item.throttling.numUserMessagesInConversation >= response.item.throttling.maxNumUserMessagesInConversation;
+              } else if (response.item.result.value) {
+                result.text = response.item.result.value;
               }
             } else if (message.type === 7) {
               ws.send(`{"type":7}${terminalChar}`);
@@ -297,7 +290,6 @@ export class BingChat {
               ws.send(`{"type":6}${terminalChar}`);
             } else if (message.type === 3) {
               isFulfilled = true;
-              onMessage?.(result);
               resolve(result);
               cleanup();
             }
@@ -306,7 +298,7 @@ export class BingChat {
       }
     )
 
-    return responseP
+    return responseP;
   }
 
   async createConversation(_cookie): Promise<types.ConversationResult> {
@@ -351,10 +343,10 @@ const ConversationState = {
     }
     if (opts.end) {
       _options = null;
-      opts.text += '\n\nSystem Info：Bing canceled the conversation'
+      opts.text += '\n\nSystem Info：New Bing closed this conversation. Please try again.'
     } else {
       _options = {
-        conversationExpiryTime: opts.conversationExpiryTime,
+        conversationExpiryTime: new Date(Date.now() + 3900000).toISOString(),
         clientId: opts.clientId,
         conversationId: opts.conversationId,
         conversationSignature: opts.conversationSignature,

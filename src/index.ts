@@ -72,7 +72,8 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
             if (CurrentSpace) {
               CurrentModel = 'gradio';
               if (!isNaN(CurrentSpace as any)) {
-                CurrentSpace = spaces[CurrentSpace];
+                const config = spaces[CurrentSpace] || {};
+                return `AI 已切换到 Gradio，模型地址为: ${config.url || config.endpoint}`;
               }
               return `AI 已切换到 Gradio，模型地址为: ${CurrentSpace}`;
             } else {

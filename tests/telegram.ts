@@ -1,8 +1,8 @@
+import chat from '..';
 import TelegramBot from 'node-telegram-bot-api';
-import chat from '..'
 import dotenv from 'dotenv';
 
-const throttle = (cb: Function, ms: number = 200) => {
+const throttle = (cb: Function, ms: number = 2500) => {
     let tid: NodeJS.Timeout | null;
     let lastArgs: any[] = [];
     return (...args) => {
@@ -11,6 +11,7 @@ const throttle = (cb: Function, ms: number = 200) => {
             tid = setTimeout(() => {
                 tid = null;
                 cb(...lastArgs);
+                lastArgs = [];
             }, ms);
         }
     };
@@ -26,8 +27,11 @@ bot.onText(/(.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const msgText = match[1];
 
+    let lastMsg = '';
     const result = await bot.sendMessage(chatId, '请稍候...');
     async function sendMessage(msg) {
+        if (msg === lastMsg || !msg) return;
+        lastMsg = msg;
         bot.editMessageText(msg, {
             chat_id: chatId,
             message_id: result.message_id,

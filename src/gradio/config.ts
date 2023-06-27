@@ -6,6 +6,9 @@ export const spaces = [
         url: 'https://huggingface.co/spaces/HuggingFaceH4/starchat-playground',
     },
     {
+        url: 'https://huggingface.co/spaces/OptimalScale/Robin-7b',
+    },
+    {
         url: 'https://huggingface.co/spaces/justest/vicuna-ggml',
         fn_index: 2,
     },

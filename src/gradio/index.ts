@@ -52,7 +52,7 @@ async function resolveEndpoint(url: string) {
 
 const traverseContent = (data: any) => {
   if (!Array.isArray(data)) {
-    return data;
+    return data?.value || data;
   }
   return traverseContent(data.at(-1));
 }
@@ -158,7 +158,6 @@ export const chat = async (prompt: string, options: GradioChatOptions): Promise<
           outputIndex = data.findIndex((row: any) => JSON.stringify(row).indexOf('<') > -1);
         }
         const message = traverseContent(data?.at(outputIndex) ?? []);
-
         if (errorMessage) {
           options?.onError?.(errorMessage);
         } else {

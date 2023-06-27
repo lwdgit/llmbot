@@ -19,7 +19,6 @@ const modelscope = [
 const huggingface = [
   'https://huggingface.co/spaces/HuggingFaceH4/falcon-chat',
   'https://huggingface.co/spaces/multimodalart/ChatGLM-6B',
-  'https://huggingface.co/spaces/ysharma/ChatGLM-6b_Gradio_Streaming',
   'https://huggingface.co/spaces/justest/vicuna-ggml',
   'https://huggingface.co/spaces/HuggingFaceH4/starchat-playground',
   'https://huggingface.co/spaces/IDEA-CCNL/Ziya-v1'
@@ -29,16 +28,16 @@ const huggingface = [
 //     url: modelscope.at(-1),
 // }).then(res => console.log({res}));
 
-// chat('你叫什么名字', {
-//   url: huggingface.at(3),
-//   fn_index: 2,
-// }).then(res => console.log({ res })).catch(e => console.log(e));
+chat('你叫什么名字', {
+  url: huggingface.at(2),
+  fn_index: 2,
+}).then(res => console.log({ res })).catch(e => console.log(e));
 
 // vicuna
-chat('你叫什么名字', {
-    endpoint: custom[0],
-    fn_index: 9,
-}).then(res => console.log({res})).catch(e => console.log(e));
+// chat('你叫什么名字', {
+//     endpoint: custom[0],
+//     fn_index: 9,
+// }).then(res => console.log({res})).catch(e => console.log(e));
 
 // custom
 // chat('你叫什么名字', {

@@ -29,16 +29,16 @@ bot.onText(/(.+)/, async (msg, match) => {
 
     let lastMsg = '';
     const result = await bot.sendMessage(chatId, '请稍候...');
-    async function sendMessage(msg) {
+    const sendMessage = throttle((msg) => {
         if (msg === lastMsg || !msg) return;
         lastMsg = msg;
         bot.editMessageText(msg, {
             chat_id: chatId,
             message_id: result.message_id,
         });
-    }
+    });
     const response = await chat(msgText, {
-        onMessage: throttle(sendMessage),
+        onMessage: sendMessage,
     });
     sendMessage(response);
 });

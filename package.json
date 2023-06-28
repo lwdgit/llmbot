@@ -1,6 +1,6 @@
 {
   "name": "llmbot",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "LLM Chatbot",
   "bin": {
     "chatbot": "dist/cli.js",
@@ -29,6 +29,7 @@
   "dependencies": {
     "@slack/web-api": "^6.8.1",
     "axios": "^1.4.0",
+    "chatgpt": "^5.2.5",
     "debug": "^4.3.4",
     "dotenv": "^16.2.0",
     "https-proxy-agent": "^7.0.0",

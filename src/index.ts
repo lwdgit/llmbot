@@ -1,23 +1,27 @@
 import assert from 'assert';
 import dotenv from 'dotenv';
+import { ChatGPTUnofficialProxyAPI } from 'chatgpt';
+import Auth from './utils/auth';
+import Debug from 'debug';
 import type { LLMMessage, LLMOpts } from './typings';
 import { lock } from './utils';
 import { chat as bing } from './bing/bing-chat';
 import { chat as gradio, spaces } from './gradio';
 import PoeChat, { Models } from './poe';
 import { SlackBot } from './slack';
-import Debug from 'debug';
+
 const debug = Debug('llmbot:index');
 
 dotenv.config();
 
-export const models = ['bing', 'slack', ...Models, 'gradio'] as const;
+export const models = ['bing', 'chatgpt-web', 'slack', ...Models, 'gradio'] as const;
 
 let CurrentModel: typeof models[number] = 'bing';
 let CurrentSpace: string = '';
 
 let poeBot: PoeChat;
 let slackBot: SlackBot;
+let chatgptBot: ChatGPTUnofficialProxyAPI | null;
 function poeCookie(cookie: string) {
   poeBot = new PoeChat(cookie);
   return poeBot.start();
@@ -101,8 +105,35 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
       return (await slackBot.chat(prompt, {
         onMessage: opts.onMessage,
       })).message;
-    } if (model === 'gradio') {
+    } else if (model === 'gradio') {
       return await gradio(prompt, { url: CurrentSpace, onMessage: opts.onMessage });
+    } else if (model === 'chatgpt-web') {
+      if (!chatgptBot) {
+        assert(process.env.OPENAI_EMAIL, '没有配置 OPENAI_EMAIL');
+        assert(process.env.OPENAI_PASSWORD, '没有配置 OPENAI_PASSWORD');
+        debug('正在登录openai');
+        const auth = new Auth(process.env.OPENAI_EMAIL, process.env.OPENAI_PASSWORD);
+        const accessToken = await auth.getAccessToken();
+        debug('获取 accessToken 成功', accessToken);
+        chatgptBot = new ChatGPTUnofficialProxyAPI({
+          accessToken,
+          apiReverseProxyUrl: process.env.OPENAI_NOPROXY ? undefined : 'https://ai.fakeopen.com/api/conversation',
+          model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        });
+      }
+
+      return (await chatgptBot.sendMessage(prompt, {
+        onProgress: (msg) => {
+          debug('msg', JSON.stringify(msg));
+          if (msg.text === prompt) return;
+          opts.onMessage?.(msg.text);
+        }
+      }).catch(e => {
+        chatgptBot = null;
+        return  {
+          text: `${e}`,
+        };
+      })).text;
     }
     return await poe(prompt, model, opts.onMessage);
   } catch (e) {

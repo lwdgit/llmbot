@@ -1,5 +1,5 @@
-import * as crypto from 'node:crypto'
-import WebSocket from 'ws'
+import * as crypto from 'node:crypto';
+import WebSocket from 'ws';
 import axios from 'axios';
 import Debug from 'debug';
 import { HttpsProxyAgent } from 'https-proxy-agent';

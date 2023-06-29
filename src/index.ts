@@ -4,24 +4,28 @@ import { ChatGPTUnofficialProxyAPI } from 'chatgpt';
 import Auth from './utils/auth';
 import Debug from 'debug';
 import type { LLMMessage, LLMOpts } from './typings';
-import { lock } from './utils';
+import { lock } from './utils/lock';
 import { chat as bing } from './bing/bing-chat';
 import { chat as gradio, spaces } from './gradio';
 import PoeChat, { Models } from './poe';
 import { SlackBot } from './slack';
+import Gpt4 from './gpt4';
 
 const debug = Debug('llmbot:index');
 
 dotenv.config();
 
-export const models = ['bing', 'chatgpt-web', 'slack', ...Models, 'gradio'] as const;
+export const models = ['bing', 'chatgpt-web', 'gpt4', 'slack', ...Models, 'gradio'] as const;
 
 let CurrentModel: typeof models[number] = 'bing';
 let CurrentSpace: string = '';
 
 let poeBot: PoeChat;
 let slackBot: SlackBot;
-let chatgptBot: ChatGPTUnofficialProxyAPI | null;
+let chatgptBot: ChatGPTUnofficialProxyAPI | undefined;
+let gpt4Bot: Gpt4; 
+let conversationId;
+let parentMessageId;
 function poeCookie(cookie: string) {
   poeBot = new PoeChat(cookie);
   return poeBot.start();
@@ -118,22 +122,36 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
         chatgptBot = new ChatGPTUnofficialProxyAPI({
           accessToken,
           apiReverseProxyUrl: process.env.OPENAI_NOPROXY ? undefined : 'https://ai.fakeopen.com/api/conversation',
-          model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+          model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo-0613',
         });
       }
 
-      return (await chatgptBot.sendMessage(prompt, {
+      const conversation = await chatgptBot.sendMessage(prompt, {
+        conversationId,
+        parentMessageId,
         onProgress: (msg) => {
           debug('msg', JSON.stringify(msg));
           if (msg.text === prompt) return;
           opts.onMessage?.(msg.text);
         }
       }).catch(e => {
-        chatgptBot = null;
+        chatgptBot = undefined;
         return  {
           text: `${e}`,
+          conversationId: undefined,
+          id: undefined,
         };
-      })).text;
+      });
+      conversationId = conversation.conversationId;
+      parentMessageId = conversation.id;
+      return conversation.text;
+    } else if (model === 'gpt4') {
+      if (!gpt4Bot) {
+        gpt4Bot = new Gpt4();
+      }
+      return await gpt4Bot.sendMessage(prompt, {
+        onMessage: opts.onMessage,
+      });
     }
     return await poe(prompt, model, opts.onMessage);
   } catch (e) {

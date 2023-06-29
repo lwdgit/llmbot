@@ -2,6 +2,7 @@
 
 import assert from 'assert';
 import axios from 'axios';
+import ua from './ua';
 
 export default class Auth {
   session_token: string;
@@ -12,7 +13,6 @@ export default class Auth {
   expires: number;
   puid: string;
   cookie: string;
-  user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36';
   constructor(
     email,
     password,
@@ -46,7 +46,7 @@ export default class Auth {
 
   private async __part_three(code_verifier: string, url: string): Promise<string> {
     const headers = {
-      "User-Agent": this.user_agent,
+      "User-Agent": ua,
       "Referer": "https://ios.chat.openai.com/",
     }
     let resp = await axios.get(url, { headers });
@@ -67,14 +67,14 @@ export default class Auth {
         throw new Error(`Rate limit hit. ${e}`);
       }
     } else {
-      throw new Error("Error request login url.")
+      throw new Error(`Error request login url. ${resp.status}`)
     }
   }
 
   private async __part_four(code_verifier: string, state: string): Promise<string> {
     const url = "https://auth0.openai.com/u/login/identifier?state=" + state
     const headers = {
-      "User-Agent": this.user_agent,
+      "User-Agent": ua,
       "Referer": url,
       "Origin": "https://auth0.openai.com",
       cookie: this.cookie,
@@ -106,7 +106,7 @@ export default class Auth {
   private async __part_five(code_verifier: string, state: string): Promise<string> {
     const url = "https://auth0.openai.com/u/login/password?state=" + state
     const headers = {
-      "User-Agent": this.user_agent,
+      "User-Agent": ua,
       "Referer": url,
       "Origin": "https://auth0.openai.com",
       cookie: this.cookie,
@@ -137,7 +137,7 @@ export default class Auth {
   private async __part_six(code_verifier: string, location: string, ref: string): Promise<string> {
     const url = "https://auth0.openai.com" + location
     const headers = {
-      "User-Agent": this.user_agent,
+      "User-Agent": ua,
       "Referer": ref,
       cookie: this.cookie,
     }
@@ -171,7 +171,7 @@ export default class Auth {
       "action": "default",
     }
     const headers = {
-      "User-Agent": this.user_agent,
+      "User-Agent": ua,
       "Referer": url,
       "Origin": "https://auth0.openai.com",
       cookie: this.cookie,
@@ -211,7 +211,7 @@ export default class Auth {
 
     const url = "https://auth0.openai.com/oauth/token"
     const headers = {
-      "User-Agent": this.user_agent,
+      "User-Agent": ua,
       cookie: this.cookie,
     }
     const data = {

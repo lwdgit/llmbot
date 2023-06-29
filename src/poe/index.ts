@@ -14,7 +14,7 @@ const ModelMap = {
   sage: 'capybara',
   claude: 'a2',
   'claude+': 'a2_2',
-  gpt4: 'beaver',
+  // gpt4: 'beaver',
   qianlong: 'qianlonggpt',
   midjourney: 'midjourney',
 };

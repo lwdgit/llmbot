@@ -3,7 +3,7 @@ import assert from 'assert';
 import Debug from 'debug';
 const debug = Debug('llmbot:slack');
 import type { LLMMessage } from '../typings';
-import { sleep } from '../utils';
+import { sleep } from '../utils/lock';
 
 type MsgCallback = (msg: string, done: boolean) => void;
 interface SlackOpts {

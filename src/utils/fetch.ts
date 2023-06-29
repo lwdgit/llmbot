@@ -5,7 +5,7 @@ const debug = Debug('llmbot:fetch');
 export default async function fetch(url: string, options?: AxiosRequestConfig<any> & { body?: any }): Promise<Response> {
   debug('fetch', options?.method || 'GET', url);
   if (options?.body) {
-    options.data = JSON.parse(options.body);
+    options.data = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
     delete options?.body;
   }
   const response = await axios(url, {

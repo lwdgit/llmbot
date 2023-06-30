@@ -24,8 +24,10 @@ export type SendMessageOptions = {
 export interface ChatMessage {
   id: string
   text: string
+  prompt?: string
+  messageId?: string
   author: Author
-
+  contentType?: 'IMAGE'
   conversationId: string
   clientId: string
   conversationSignature: string
@@ -116,6 +118,7 @@ export interface ChatResponseItem {
 
 export interface ChatMessageFull {
   text: string
+  contentType?: 'IMAGE'
   spokenText?: string
   author: Author
   from?: ChatMessageFrom

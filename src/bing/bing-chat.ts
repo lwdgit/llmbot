@@ -1,10 +1,13 @@
 import * as crypto from 'node:crypto';
+import assert from 'node:assert';
 import WebSocket from 'ws';
 import axios from 'axios';
 import Debug from 'debug';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import * as types from './types';
 import { LLMMessage } from '../typings';
+import ua from '../utils/ua';
+import { sleep } from '../utils/lock';
 
 const debug = Debug('llmbot:bing');
 
@@ -12,6 +15,29 @@ const terminalChar = '\x1e';
 
 export class BingChat {
   protected _cookie: string;
+  private _options: null | types.SendMessageOptions = null;
+  setState(opts: types.SendMessageOptions & Partial<Pick<types.ChatMessage, 'end' | 'text'>>) {
+    if (!opts.text) {
+      opts.text = 'No response';
+      opts.end = true;
+    }
+    if (opts.end) {
+      this._options = null;
+      opts.text += '\n\nSystem Info：New Bing closed this conversation. Please try again.'
+    } else {
+      this._options = {
+        conversationExpiryTime: new Date(Date.now() + 3900000).toISOString(),
+        clientId: opts.clientId,
+        conversationId: opts.conversationId,
+        conversationSignature: opts.conversationSignature,
+        invocationId: opts.invocationId,
+      };
+    }
+  }
+
+  getState(): types.SendMessageOptions & Partial<Pick<types.ChatMessage, 'end' | 'text'>> | undefined {
+    return this._options && new Date(this._options?.conversationExpiryTime as any).getTime() > Date.now() + 3600000 ? this._options : undefined;
+  }
 
   constructor(opts: {
     cookie: string;
@@ -19,6 +45,35 @@ export class BingChat {
     const { cookie } = opts;
 
     this._cookie = cookie;
+  }
+
+  async drawImage(prompt: string, id: string) {
+    const cookie = this._cookie?.includes(';') ? this._cookie : `_U=${this._cookie}`;
+    const headers = {
+      'User-Agent': ua,
+      cookie,
+    };
+    debug('start drawing', prompt);
+    const { headers: responseHeaders } = await axios.head(`https://www.bing.com/images/create?partner=sydney&re=1&showselective=1&sude=1&kseed=7000&SFX=&q=${encodeURIComponent(prompt)}&iframeid=${id}`,
+      {
+        headers,
+        maxRedirects: 0,
+        validateStatus: () => true,
+      },
+    );
+    assert(/&id=([^&]+)$/.test(responseHeaders.location || ''), '请求异常，请检查 cookie');
+    const resultId = RegExp.$1;
+    const imageThumbUrl = `https://www.bing.com/images/create/async/results/${resultId}?q=${encodeURIComponent(prompt)}&partner=sydney&showselective=1&IID=images.as`;
+    do {
+      await sleep(2000);
+      const { data } = await axios.get(imageThumbUrl, { headers });
+      debug('fetch results', data?.length);
+      if (data?.length > 0) {
+        return data.match(/<img class="mimg"((?!src).)+src="[^"]+/mg)
+        .map(target => target.split('src="').pop().replace(/&amp;/g, '&'))
+        .map(img => `![${prompt}](${img})`).join('\n');
+      }
+    } while(true);
   }
 
   /**
@@ -56,8 +111,8 @@ export class BingChat {
           'timezoneoffset': 8,
           'countryConfidence': 8,
           'Center': {
-              'Latitude': 34.0536909,
-              'Longitude': -118.242766
+            'Latitude': 34.0536909,
+            'Longitude': -118.242766
           },
           'RegionType': 2,
           'SourceType': 1
@@ -67,7 +122,7 @@ export class BingChat {
       variant = 'Creative'
     } = opts;
 
-    let { conversationId, clientId, conversationSignature } = opts;
+    let { conversationId, clientId, conversationSignature } = this.getState() || opts;
     const isStartOfSession = !(
       conversationId &&
       clientId &&
@@ -131,9 +186,8 @@ export class BingChat {
 
         // example location: 'lat:47.639557;long:-122.128159;re=1000m;'
         const locationStr = location
-          ? `lat:${location.lat};long:${location.lng};re=${
-              location.re || '1000m'
-            };`
+          ? `lat:${location.lat};long:${location.lng};re=${location.re || '1000m'
+          };`
           : undefined;
 
         // Sets the correct options for the variant of the model
@@ -221,7 +275,7 @@ export class BingChat {
           type: 4
         };
 
-        debug(chatWebsocketUrl, JSON.stringify(params, null, 2));
+        debug(chatWebsocketUrl, JSON.stringify(params));
 
         ws.on('open', () => {
           ws.send(`{"protocol":"json","version":1}${terminalChar}`);
@@ -229,7 +283,7 @@ export class BingChat {
           ws.send(`${JSON.stringify(params)}${terminalChar}`);
         });
 
-        ws.on('message', (data) => {
+        ws.on('message', async (data) => {
           const objects = data.toString().split(terminalChar);
 
           const messages = objects
@@ -278,7 +332,12 @@ export class BingChat {
               if (lastMessage) {
                 result.conversationExpiryTime = response.item.conversationExpiryTime;
                 result.author = lastMessage.author;
-                result.text = lastMessage.text || (lastMessage.adaptiveCards??[]).map(card => card.body.map(body => body.text).join('\n')).join('\n');
+                result.text = lastMessage.text || (lastMessage.adaptiveCards ?? []).map(card => card.body.map(body => body.text).join('\n')).join('\n');
+                result.contentType = response.item.messages.at(-1)?.contentType;
+                if (result.contentType === 'IMAGE') {
+                  result.prompt = response.item.messages.at(-1)?.text;
+                }
+                result.messageId = lastMessage.messageId;
                 result.detail = lastMessage;
                 result.end = response.item?.messages.at(-1)?.messageType === 'Disengaged' || response.item.throttling.numUserMessagesInConversation >= response.item.throttling.maxNumUserMessagesInConversation;
               } else if (response.item.result.value) {
@@ -290,11 +349,19 @@ export class BingChat {
               ws.send(`{"type":6}${terminalChar}`);
             } else if (message.type === 3) {
               isFulfilled = true;
+              if (result.contentType === 'IMAGE' && result.prompt) {
+                if (!this._cookie) {
+                  result.text += '\n画图需要你的 cookie _U 值';
+                } else {
+                  result.text += '\n' + await this.drawImage(result.prompt, result.messageId!);
+                }
+              }
+              this.setState(result);
               resolve(result);
               cleanup();
             }
           }
-        })
+        });
       }
     )
 
@@ -305,23 +372,16 @@ export class BingChat {
     // const url = 'https://edgeservices.bing.com/edgesvc/turing/conversation/create';
     const url = 'https://www.bing.com/turing/conversation/create';
 
-    const cookie = _cookie?.includes(';')
-      ? _cookie
-      : `_U=${_cookie}`;
+    const cookie = _cookie?.includes(';') ? _cookie : `_U=${_cookie}`;
 
-    const response = await axios.get(url, {
+    const { data: response } = await axios.get(url, {
       headers: {
         'accept': 'application/json',
         'accept-language': 'zh-CN,zh;q=0.9',
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
+        'User-Agent': ua,
         'x-ms-useragent': 'azsdk-js-api-client-factory/1.0.0-beta.1 core-rest-pipeline/1.10.0 OS/MacIntel',
         cookie: _cookie ? cookie : undefined,
       },
-    }).then((res) => {
-      if (res.status !== 200) {
-        throw new Error('Network error');
-      }
-      return res.data;
     })
 
     if (response?.result?.value === 'Success') {
@@ -333,40 +393,15 @@ export class BingChat {
   }
 }
 
-
-let _options : null | types.SendMessageOptions = null;
-const ConversationState = {
-  set value(opts: types.SendMessageOptions & Partial<Pick<types.ChatMessage, 'end' | 'text'>>) {
-    if (!opts.text) {
-      opts.text = 'No response';
-      opts.end = true;
-    }
-    if (opts.end) {
-      _options = null;
-      opts.text += '\n\nSystem Info：New Bing closed this conversation. Please try again.'
-    } else {
-      _options = {
-        conversationExpiryTime: new Date(Date.now() + 3900000).toISOString(),
-        clientId: opts.clientId,
-        conversationId: opts.conversationId,
-        conversationSignature: opts.conversationSignature,
-        invocationId: opts.invocationId,
-      };
-    }
-  },
-  get value(): types.SendMessageOptions & Partial<Pick<types.ChatMessage, 'end' | 'text'>> | undefined {
-    return _options && new Date(_options?.conversationExpiryTime as any).getTime() > Date.now() + 3600000 ? _options : undefined;
-  },
-}
-
+let bot: BingChat;
 export async function chat(prompt: string, onMessage?: LLMMessage) {
-  const api = new BingChat({ cookie: process.env.BING_COOKIE || '' })
-  const response = await api.sendMessage(prompt, {
-    ...ConversationState.value,
+  if (!bot) {
+    bot = new BingChat({ cookie: process.env.BING_COOKIE || '' })
+  }
+  const response = await bot.sendMessage(prompt, {
     onMessage: (res) => {
       onMessage?.(res.text);
     },
   });
-  ConversationState.value = response;
   return response.text;
 }

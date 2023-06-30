@@ -9,13 +9,12 @@ import { chat as bing } from './bing/bing-chat';
 import { chat as gradio, spaces } from './gradio';
 import PoeChat, { Models } from './poe';
 import { SlackBot } from './slack';
-import Gpt4 from './gpt4';
 
 const debug = Debug('llmbot:index');
 
 dotenv.config();
 
-export const models = ['bing', 'chatgpt-web', 'gpt4', 'slack', ...Models, 'gradio'] as const;
+export const models = ['bing', 'chatgpt-web', 'slack', ...Models, 'gradio'] as const;
 
 let CurrentModel: typeof models[number] = 'bing';
 let CurrentSpace: string = '';
@@ -23,7 +22,6 @@ let CurrentSpace: string = '';
 let poeBot: PoeChat;
 let slackBot: SlackBot;
 let chatgptBot: ChatGPTUnofficialProxyAPI | undefined;
-let gpt4Bot: Gpt4; 
 let conversationId;
 let parentMessageId;
 function poeCookie(cookie: string) {
@@ -145,13 +143,6 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
       conversationId = conversation.conversationId;
       parentMessageId = conversation.id;
       return conversation.text;
-    } else if (model === 'gpt4') {
-      if (!gpt4Bot) {
-        gpt4Bot = new Gpt4();
-      }
-      return await gpt4Bot.sendMessage(prompt, {
-        onMessage: opts.onMessage,
-      });
     }
     return await poe(prompt, model, opts.onMessage);
   } catch (e) {

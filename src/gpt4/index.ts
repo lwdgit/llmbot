@@ -64,7 +64,7 @@ export default class Gpt4 {
     return new Promise(async (resolve) => {
       if (response.status !== 200) {
         this.authCode = '';
-        resolve('本次请求失败，请重试');
+        return resolve('本次请求失败，请重试');
       }
       const stream = await response.json();
       let responseText = '';

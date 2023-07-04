@@ -10,13 +10,12 @@ import { LLMMessage } from '../typings';
 const gqlDir = path.join(__dirname, '../../graphql');
 
 const ModelMap = {
-  chatgpt: 'chinchilla',
   sage: 'capybara',
+  'claude_plus': 'a2_2',
   claude: 'a2',
-  'claude+': 'a2_2',
-  // gpt4: 'beaver',
-  qianlong: 'qianlonggpt',
   midjourney: 'midjourney',
+  gpt4: '1gpt4free',
+  qianlong: 'qianlonggpt',
 };
 
 export const Models = Object.keys(ModelMap) as Array<keyof typeof ModelMap>;
@@ -69,8 +68,8 @@ export default class ChatBot {
     this.credentials.app_settings.tchannelData.minSeq = minSeq;
   }
 
-  public async ask(msg: string, model: IModels = 'chatgpt', onMessage?: LLMMessage): Promise<string> {
-    let formatModel = ModelMap[model] || ModelMap.chatgpt;
+  public async ask(msg: string, model: IModels = 'gpt4', onMessage?: LLMMessage): Promise<string> {
+    let formatModel = ModelMap[model] || ModelMap.gpt4;
     await this.getChatId(formatModel);
     const msgData = await this.sendMsg(msg);
     if (!msgData?.data?.messageEdgeCreate?.message) {
@@ -89,7 +88,7 @@ export default class ChatBot {
     return res;
   }
 
-  public async send(messages: Array<{ role: string; content: string }>, model: IModels = 'chatgpt') {
+  public async send(messages: Array<{ role: string; content: string }>, model: IModels = 'gpt4') {
     var prompt = '';
     for (var i = 0; i < messages.length; i++) {
       if (i == messages.length - 1) {

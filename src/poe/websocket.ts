@@ -5,7 +5,7 @@ import type { LLMMessage } from '../typings';
 const debug = Debug('llmbot:poe');
 
 const getSocketUrl = async (credentials) => {
-  const socketUrl = `wss://tch${Math.ceil(Math.random() * (1e6 - 1))}.tch.quora.com`;
+  const socketUrl = `wss://tch1.tch.quora.com`;
   const appSettings = credentials.app_settings.tchannelData;
   const { boxName, minSeq, channel, channelHash } = appSettings || {};
   return `${socketUrl}/up/${boxName}/updates?min_seq=${minSeq}&channel=${channel}&hash=${channelHash}`;
@@ -53,7 +53,10 @@ export const listenWs = async (ws: WebSocket, since: number, onMessage?: LLMMess
         }
       }
     };
-    ws.on('error', debug);
+    ws.on('error', (e) => {
+      debug(`error: ${e}`);
+      resolve('error');
+    });
     ws.on('message', handleMessage);
     ws.on('close', function close() {
       debug('ws closed');

@@ -26,7 +26,7 @@ export class BingChat {
       opts.text += '\n\nSystem Info：New Bing closed this conversation. Please try again.'
     } else {
       this._options = {
-        conversationExpiryTime: new Date(Date.now() + 3900000).toISOString(),
+        conversationExpiryTime: new Date(Date.now() + 4800000).toISOString(),
         clientId: opts.clientId,
         conversationId: opts.conversationId,
         conversationSignature: opts.conversationSignature,

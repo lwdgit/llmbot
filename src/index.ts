@@ -1,20 +1,21 @@
 import assert from 'assert';
 import dotenv from 'dotenv';
 import { ChatGPTUnofficialProxyAPI } from 'chatgpt';
+import { GradioChatBot, spaces } from 'gradio-chatbot';
 import Auth from './utils/auth';
 import Debug from 'debug';
 import type { LLMMessage, LLMOpts } from './typings';
 import { lock } from './utils/lock';
 import { chat as bing } from './bing/bing-chat';
-import { chat as gradio, spaces } from './gradio';
 import PoeChat, { Models } from './poe';
 import { SlackBot } from './slack';
+import MJ from './midjourney';
 
 const debug = Debug('llmbot:index');
 
 dotenv.config();
 
-export const models = ['bing', 'chatgpt-web', 'slack', ...Models, 'gradio'] as const;
+export const models = ['bing', 'chatgpt_web', ...Models, 'slack', 'gradio'] as const;
 
 let CurrentModel: typeof models[number] = 'bing';
 let CurrentSpace: string = '';
@@ -22,6 +23,7 @@ let CurrentSpace: string = '';
 let poeBot: PoeChat;
 let slackBot: SlackBot;
 let chatgptBot: ChatGPTUnofficialProxyAPI | undefined;
+let gradioBot: GradioChatBot | undefined;
 let conversationId;
 let parentMessageId;
 function poeCookie(cookie: string) {
@@ -29,7 +31,7 @@ function poeCookie(cookie: string) {
   return poeBot.start();
 }
 
-async function poe(prompt: string, model: typeof Models[number] = 'chatgpt', onMessage?: LLMMessage): Promise<string> {
+async function poe(prompt: string, model: typeof Models[number] = 'gpt4', onMessage?: LLMMessage): Promise<string> {
   assert(process.env.POE_COOKIE, 'No poe cooike')
   if (!poeBot) {
     await poeCookie(process.env.POE_COOKIE);
@@ -59,7 +61,7 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
       }
 
       if (command === 'list') {
-        return '当前可以使用的 AI 指令：\n\n' + models.map(model => `/use ${model}`).join('\n');
+        return '当前可以使用的 AI 指令：\n\n' + models.map(model => `/${model}`).join('\n');
       } else if (command === 'current') {
         return `当前正在使用 ${CurrentModel} ${CurrentModel === 'gradio' ? CurrentSpace : ''}`;
       } else if (command === 'cookie') {
@@ -74,16 +76,15 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
         const [modelName, extra] = args.split(/\s+/);
         if (models.includes(modelName as any)) {
           if (modelName === 'gradio') {
-            CurrentSpace = extra || CurrentSpace;
+            CurrentSpace = extra || CurrentSpace || '0';
+            gradioBot = undefined;
             if (CurrentSpace) {
               CurrentModel = 'gradio';
               if (!isNaN(CurrentSpace as any)) {
                 const config = spaces[CurrentSpace] || {};
-                return `AI 已切换到 Gradio，模型地址为: ${config.url || config.endpoint}`;
+                return `AI 已切换到 Gradio，模型地址为: ${config.url || config}`;
               }
               return `AI 已切换到 Gradio，模型地址为: ${CurrentSpace}`;
-            } else {
-              return `Gradio 需要指定模型地址`;
             }
           } else {
             CurrentModel = modelName as any;
@@ -108,8 +109,11 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
         onMessage: opts.onMessage,
       })).message;
     } else if (model === 'gradio') {
-      return await gradio(prompt, { url: CurrentSpace, onMessage: opts.onMessage });
-    } else if (model === 'chatgpt-web') {
+      if (!gradioBot) {
+        gradioBot = new GradioChatBot({ url: CurrentSpace });
+      }
+      return await gradioBot.chat(prompt, { onMessage: opts.onMessage });
+    } else if (model === 'chatgpt_web') {
       if (!chatgptBot) {
         assert(process.env.OPENAI_EMAIL, '没有配置 OPENAI_EMAIL');
         assert(process.env.OPENAI_PASSWORD, '没有配置 OPENAI_PASSWORD');
@@ -120,7 +124,7 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
         chatgptBot = new ChatGPTUnofficialProxyAPI({
           accessToken,
           apiReverseProxyUrl: process.env.OPENAI_NOPROXY ? undefined : 'https://ai.fakeopen.com/api/conversation',
-          model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo-0613',
+          model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo-16k',
         });
       }
 
@@ -143,6 +147,19 @@ export default async (prompt: string, opts: LLMOpts<typeof models[number]>): Pro
       conversationId = conversation.conversationId;
       parentMessageId = conversation.id;
       return conversation.text;
+    } else if (model === 'midjourney') {
+      const response = (await poe(prompt, 'midjourney'));
+      if (process.env.MJ_UUID && /(?:[\r\n]|^)\/imagine prompt:\s([\w\W]+)/mg.test(response)) {
+        const query = RegExp.$1;
+        const messages = [`引导词：${query}`, `正在作画，预计需要 1 分钟`];
+        opts.onMessage?.(messages.join('\n'));
+        const imgSrc = await new MJ(process.env.MJ_UUID).drawImage(query.split(/\n/).pop()!)
+          .catch(e => console.log(e));
+        messages.push(imgSrc ? `![${prompt}](${imgSrc})` : '图像生成失败，请重试');
+        return messages.join('\n');
+      } else {
+        return response;
+      }
     }
     return await poe(prompt, model, opts.onMessage);
   } catch (e) {

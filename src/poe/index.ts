@@ -83,7 +83,7 @@ export default class ChatBot {
       return `An unknown error occured. Raw response data: ${JSON.stringify(msgData)}`;
     }
     const ws = await connectWs(this.credentials);
-    let res = await listenWs(ws, creationTime, onMessage);
+    let res = await listenWs(ws, creationTime, onMessage).catch(e => e);
     disconnectWs(ws);
     return res;
   }

@@ -15,9 +15,10 @@ export const connectWs = async (credentials): Promise<WebSocket> => {
   const url = await getSocketUrl(credentials);
   const agent = process.env.HTTP_PROXY ? new HttpsProxyAgent(process.env.HTTP_PROXY) : undefined;
   const ws = new WebSocket(url, { agent });
+  const time = Date.now();
   return new Promise((resolve, reject) => {
     ws.on('open', function open() {
-      debug('ws open');
+      debug('ws open', Date.now() - time);
       return resolve(ws);
     });
   });
@@ -29,7 +30,7 @@ export const disconnectWs = async (ws: WebSocket) => {
 };
 
 export const listenWs = async (ws: WebSocket, since: number, onMessage?: LLMMessage): Promise<string> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let previousText = '';
     const handleMessage = function incoming(data) {
       const dataString = data.toString();
@@ -49,6 +50,8 @@ export const listenWs = async (ws: WebSocket, since: number, onMessage?: LLMMess
           } else if (state === 'incomplete') {
             onMessage?.(text);
             previousText = text;
+          } else {
+            reject(state);
           }
         }
       }
